@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>A Little Space</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; background: #0A0A12; }
+  body { font-family: 'DM Sans', sans-serif; color: #F5EFE0; -webkit-tap-highlight-color: transparent; }
+
+  #app {
+    max-width: 520px; margin: 0 auto; height: 100vh; height: 100dvh;
+    display: flex; flex-direction: column; position: relative; overflow: hidden;
+  }
+
+  #stage {
+    flex: 1; position: relative; overflow: hidden;
+    transition: background 1.2s ease;
+    display: flex; flex-direction: column;
+  }
+
+  .scene {
+    padding: 28px 22px; flex: 1; display: flex; flex-direction: column;
+    position: relative; animation: fadeIn 0.8s ease-out;
+  }
+
+  #progress-wrap {
+    display: flex; gap: 3px; padding: 10px 16px 14px;
+    background: rgba(0,0,0,0.3);
+  }
+  .pseg { flex: 1; height: 3px; background: rgba(255,255,255,0.15); border-radius: 2px; transition: background 0.5s; }
+  .pseg.active { background: rgba(255,255,255,0.7); }
+
+  .serif { font-family: 'Cormorant Garamond', serif; font-weight: 500; }
+  .ch-num { font-size: 11px; letter-spacing: 3px; opacity: 0.6; margin-bottom: 8px; text-transform: uppercase; }
+  .ch-title { font-size: 28px; margin-bottom: 16px; line-height: 1.2; }
+  .ch-body { font-size: 14px; line-height: 1.75; opacity: 0.88; margin-bottom: 16px; }
+  .prompt { font-size: 14px; font-style: italic; line-height: 1.7; margin: 12px 0; opacity: 0.8; }
+
+  textarea, input[type="text"] {
+    width: 100%; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 10px; padding: 12px 14px; font-size: 14px; font-family: 'DM Sans', sans-serif;
+    resize: none; line-height: 1.6; color: inherit; outline: none;
+  }
+  textarea::placeholder, input::placeholder { color: rgba(255,255,255,0.3); font-style: italic; }
+  textarea:focus, input:focus { border-color: rgba(255,255,255,0.5); }
+
+  .btn-main {
+    background: rgba(255,255,255,0.95); color: #1A1A2E; border: none;
+    padding: 14px 32px; border-radius: 999px; font-size: 14px; font-weight: 500;
+    cursor: pointer; font-family: 'DM Sans', sans-serif; letter-spacing: 0.5px;
+    align-self: center; transition: transform 0.15s, opacity 0.15s;
+  }
+  .btn-main:hover { transform: scale(1.04); }
+  .btn-main:active { transform: scale(0.97); }
+  .btn-main:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .btn-ghost {
+    background: transparent; color: inherit; border: 1px solid rgba(255,255,255,0.4);
+    padding: 10px 18px; border-radius: 999px; font-size: 12px; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; transition: background 0.2s;
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,0.1); }
+  .btn-ghost.selected { background: rgba(255,255,255,0.25); border-color: rgba(255,255,255,0.7); }
+
+  .hud {
+    display: inline-block; background: rgba(255,255,255,0.12); padding: 8px 16px;
+    border-radius: 999px; font-size: 13px; font-weight: 500;
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+
+  .clickable-item { cursor: pointer; transition: transform 0.3s; }
+  .clickable-item:hover { transform: scale(1.1); }
+
+  .mini-card {
+    aspect-ratio: 1; border-radius: 10px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; transition: transform 0.3s, background 0.3s;
+    user-select: none; background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+  .mini-card.matched { background: rgba(122,143,107,0.3); border-color: rgba(122,143,107,0.6); }
+
+  .petal-clickable {
+    position: absolute; cursor: pointer; user-select: none;
+  }
+
+  .basket-area {
+    position: absolute; bottom: 16px; width: 70px; height: 50px;
+    cursor: grab; touch-action: none; z-index: 10;
+  }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes twinkle { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
+  @keyframes floatY { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+  @keyframes sway { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
+  @keyframes pop { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(2.5); opacity: 0; } }
+  @keyframes pulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+  .star-el { animation: twinkle 3s ease-in-out infinite; }
+  .float-el { animation: floatY 4s ease-in-out infinite; }
+  .slide-up { animation: slideUp 1s ease-out; }
+  .burst { position: absolute; pointer-events: none; animation: pop 0.4s ease-out forwards; }
+
+  .play-btn-wrap {
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+    animation: fadeIn 1s ease-out;
+  }
+  .play-circle {
+    width: 72px; height: 72px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.5);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: transform 0.2s, border-color 0.3s;
+    background: rgba(255,255,255,0.05);
+  }
+  .play-circle:hover { transform: scale(1.08); border-color: rgba(255,255,255,0.9); }
+  .play-circle svg { margin-left: 4px; }
+
+  .note-float {
+    position: absolute; font-size: 14px; opacity: 0;
+    animation: noteRise 3s ease-out forwards;
+  }
+  @keyframes noteRise {
+    0% { opacity: 0; transform: translateY(0) rotate(0deg); }
+    20% { opacity: 0.7; }
+    100% { opacity: 0; transform: translateY(-80px) rotate(20deg); }
+  }
+
+  @media (max-height: 700px) {
+    .scene { padding: 20px 18px; }
+    .ch-title { font-size: 24px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage"></div>
+  <div id="progress-wrap">
+    <div class="pseg"></div><div class="pseg"></div><div class="pseg"></div>
+    <div class="pseg"></div><div class="pseg"></div><div class="pseg"></div>
+    <div class="pseg"></div><div class="pseg"></div><div class="pseg"></div>
+    <div class="pseg"></div>
+  </div>
+</div>
+<audio id="bg-music" src="music.mp3" loop preload="auto"></audio>
+
+<script>
+(function() {
+  const stage = document.getElementById('stage');
+  const segs = document.querySelectorAll('#app .pseg');
+  const userData = {};
+  const timers = [];
+  let chapter = 0;
+  let musicPlaying = false;
+
+  function clearT() { while (timers.length) { const t = timers.pop(); clearInterval(t); clearTimeout(t); } }
+  function setP(n) { segs.forEach((s, i) => s.classList.toggle('active', i < n)); }
+  function go(n) { clearT(); chapter = n; setP(n); chapters[n](); }
+  window.__go = n => go(n);
+  window.__save = (k, v) => { userData[k] = v; };
+
+  function playMusic() {
+    if (!musicPlaying) {
+      const audio = document.getElementById('bg-music');
+      audio.play().catch(() => {});
+      musicPlaying = true;
+    }
+  }
+
+  // ============ 0: INTRO — MUSIC GATE ============
+  function renderIntro() {
+    stage.style.background = '#0A0A12';
+    stage.innerHTML = `
+      <div class="scene" style="align-items: center; justify-content: center; text-align: center;">
+        <svg viewBox="0 0 200 200" style="width: 120px; height: 120px; margin-bottom: 24px; opacity: 0.8;">
+          <circle cx="100" cy="100" r="60" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="0.5"/>
+          <circle cx="100" cy="100" r="40" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.5"/>
+          <circle cx="100" cy="100" r="18" fill="rgba(255,255,255,0.9)" class="float-el"/>
+          <circle cx="40" cy="50" r="1" fill="#F5EFE0" class="star-el"/>
+          <circle cx="160" cy="40" r="1.5" fill="#F5EFE0" class="star-el" style="animation-delay:1s"/>
+          <circle cx="170" cy="150" r="1" fill="#F5EFE0" class="star-el" style="animation-delay:2s"/>
+          <circle cx="30" cy="160" r="1.5" fill="#F5EFE0" class="star-el" style="animation-delay:0.5s"/>
+        </svg>
+        <p class="ch-num" style="opacity:0.5;">BEFORE WE START</p>
+        <h1 class="serif" style="font-size: 24px; margin-bottom: 20px; line-height: 1.4;">A little space,<br>made just for you.</h1>
+        <p class="ch-body" style="max-width: 360px; margin-bottom: 28px;">Ini ruang kecil buat kamu berhenti sebentar — buat ngeliat ke belakang, buat ngobrol sama diri sendiri, buat nge-recharge sebelum lanjut lagi. Take your time. Nggak ada yang ngeliatin.</p>
+        
+        <div class="play-btn-wrap">
+          <div class="play-circle" onclick="window.__startJourney()">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="white"><polygon points="6,3 20,12 6,21"/></svg>
+          </div>
+          <p style="font-size: 12px; opacity: 0.5; letter-spacing: 1px;">TAP TO PLAY</p>
+        </div>
+      </div>
+    `;
+  }
+
+  window.__startJourney = function() {
+    playMusic();
+    go(1);
+  };
+
+  // ============ 1: CH 1 DEPARTURE ============
+  function renderCh1() {
+    stage.style.background = 'linear-gradient(180deg, #C4894A 0%, #D4A574 60%, #A67C52 100%)';
+    stage.innerHTML = `
+      <div class="scene" style="color: #3D2817;">
+        <svg viewBox="0 0 480 180" style="width:100%; height:140px; margin-bottom:8px; opacity:0.7;">
+          <rect x="0" y="130" width="480" height="50" fill="#A67C52"/>
+          <rect x="180" y="55" width="120" height="75" fill="#8B5A2B"/>
+          <rect x="200" y="75" width="28" height="35" fill="#3D2817"/>
+          <rect x="250" y="75" width="28" height="35" fill="#3D2817"/>
+          <polygon points="170,55 240,15 310,55" fill="#5D3A1A"/>
+          <g class="float-el"><rect x="80" y="142" width="36" height="26" rx="3" fill="#3D2817"/><rect x="84" y="135" width="28" height="10" rx="2" fill="#3D2817"/></g>
+          <circle cx="400" cy="40" r="22" fill="#F5DEB3" opacity="0.9"/>
+        </svg>
+        <p class="ch-num" style="color:#5D3A1A;">CHAPTER 01</p>
+        <h2 class="serif ch-title" style="color:#3D2817;">The Departure.</h2>
+        <p class="ch-body" style="color:#4A3020;">Remember the first time you packed your bags and left home? Koper di pojokan, the house too quiet, and a kind of silence you'd never felt before. You didn't know yet what was waiting on the other side.</p>
+        <p class="prompt" style="color:#4A3020;">"If you could go back to the Aisyah who was packing that day — what's one thing you'd tell her?"</p>
+        <textarea id="ans1" rows="3" placeholder="Write something for her..." style="background:rgba(255,255,255,0.4); border-color:rgba(0,0,0,0.15); color:#3D2817;"></textarea>
+        <div style="flex:1;"></div>
+        <button class="btn-main" style="background:#3D2817; color:#F5EFE0;" onclick="__save('ch1',document.getElementById('ans1').value); __go(2)">Next →</button>
+      </div>
+    `;
+  }
+
+  // ============ 2: CH 2 HOMESICK ============
+  function renderCh2() {
+    stage.style.background = 'linear-gradient(180deg, #0F1729 0%, #1A2440 100%)';
+    stage.innerHTML = `
+      <div class="scene">
+        <svg viewBox="0 0 480 150" style="width:100%; height:120px; margin-bottom:8px; opacity:0.8;">
+          <rect x="60" y="15" width="360" height="120" rx="4" fill="#0F1729" stroke="#3A4860" stroke-width="1"/>
+          <line x1="240" y1="15" x2="240" y2="135" stroke="#3A4860" stroke-width="1"/>
+          <line x1="60" y1="75" x2="420" y2="75" stroke="#3A4860" stroke-width="1"/>
+          <circle cx="120" cy="40" r="1.5" fill="#F5EFE0" class="star-el"/>
+          <circle cx="300" cy="35" r="2" fill="#F5EFE0" class="star-el" style="animation-delay:1s"/>
+          <circle cx="380" cy="32" r="14" fill="#F5DEB3" opacity="0.8" class="float-el"/>
+          <circle cx="383" cy="28" r="2" fill="#1A2440" opacity="0.3"/>
+          <circle cx="376" cy="36" r="3" fill="#1A2440" opacity="0.3"/>
+        </svg>
+        <p class="ch-num">CHAPTER 02</p>
+        <h2 class="serif ch-title">The Homesick Nights.</h2>
+        <p class="ch-body">There were nights when the kos felt too quiet. Feeling homesick bukan berarti lemah — it just means you love deeply. And deep love always finds its way back, somehow.</p>
+        <p class="prompt">"What got you through the hardest nights?" Pick anything that relates, or write your own.</p>
+        <div id="opts2" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;"></div>
+        <input type="text" id="ans2" placeholder="...or write something else that saved you"/>
+        <div style="flex:1;"></div>
+        <button class="btn-main" onclick="window.__saveCh2(); __go(3)">Next →</button>
+      </div>
+    `;
+    const opts = ['Video call family','Late-night prayers','Favorite playlist','Kos friends','Journaling','Workout','Comfort food','Just sleep'];
+    const sel = new Set();
+    const c = document.getElementById('opts2');
+    opts.forEach(o => {
+      const b = document.createElement('button');
+      b.className = 'btn-ghost'; b.textContent = o;
+      b.onclick = () => { sel.has(o) ? (sel.delete(o), b.classList.remove('selected')) : (sel.add(o), b.classList.add('selected')); };
+      c.appendChild(b);
+    });
+    window.__saveCh2 = () => { userData.ch2 = { selected: [...sel], custom: document.getElementById('ans2').value }; };
+  }
+
+  // ============ 3: GAME 1 — CATCH STARS ============
+  function renderGame1() {
+    stage.style.background = 'linear-gradient(180deg, #0A0A18 0%, #1A2440 100%)';
+    const target = 15; let caught = 0; let badHits = 0; const maxBad = 8; let over = false;
+    stage.innerHTML = `
+      <div class="scene" style="padding:16px;">
+        <div style="text-align:center; margin-bottom:6px;"><span class="hud">⭐ <span id="g1c">0</span>/${target}</span></div>
+        <p style="text-align:center; font-size:11px; opacity:0.5; letter-spacing:1.5px; margin-bottom:8px;">DRAG THE BASKET TO CATCH STARS</p>
+        <div id="g1f" style="position:relative; flex:1; background:linear-gradient(180deg,#08081A 0%,#152035 100%); border-radius:12px; overflow:hidden; touch-action:none;">
+          <svg style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;" viewBox="0 0 500 500" preserveAspectRatio="xMidYMid slice">
+            <circle cx="420" cy="30" r="14" fill="#F5DEB3" opacity="0.6"/>
+            <circle cx="50" cy="40" r="1" fill="#F5EFE0" class="star-el"/>
+            <circle cx="250" cy="25" r="1.2" fill="#F5EFE0" class="star-el" style="animation-delay:1s"/>
+            <circle cx="400" cy="60" r="0.8" fill="#F5EFE0" class="star-el" style="animation-delay:2s"/>
+          </svg>
+          <div id="g1b" class="basket-area" style="left:50%; transform:translateX(-50%);">
+            <svg viewBox="0 0 70 50"><ellipse cx="35" cy="14" rx="30" ry="5" fill="#C9573D"/><path d="M 6 14 L 10 44 Q 35 48 60 44 L 64 14 Z" fill="#E8846A" stroke="#8B3A24" stroke-width="1"/><path d="M 15 16 L 15 44 M 25 16 L 25 45 M 35 16 L 35 46 M 45 16 L 45 45 M 55 16 L 55 44" stroke="#8B3A24" stroke-width="0.6" opacity="0.5"/></svg>
+          </div>
+        </div>
+      </div>
+    `;
+    const field = document.getElementById('g1f');
+    const basket = document.getElementById('g1b');
+    const cLabel = document.getElementById('g1c');
+    let bx = 50;
+
+    function upB() { basket.style.left = bx + '%'; basket.style.transform = 'translateX(-50%)'; }
+
+    let dragging = false;
+    basket.addEventListener('mousedown', e => { dragging = true; e.preventDefault(); });
+    basket.addEventListener('touchstart', e => { dragging = true; e.preventDefault(); }, {passive:false});
+    function onMove(e) {
+      if (!dragging && !e.type.includes('click')) return;
+      const r = field.getBoundingClientRect();
+      const cx = e.touches ? e.touches[0].clientX : e.clientX;
+      bx = Math.max(8, Math.min(92, ((cx - r.left) / r.width) * 100));
+      upB();
+    }
+    field.addEventListener('mousemove', onMove);
+    field.addEventListener('touchmove', onMove, {passive:false});
+    field.addEventListener('mousedown', e => { dragging = true; onMove(e); });
+    document.addEventListener('mouseup', () => dragging = false);
+    document.addEventListener('touchend', () => dragging = false);
+    upB();
+
+    function spawn() {
+      if (over) return;
+      const isStar = Math.random() > 0.22;
+      const obj = document.createElement('div');
+      obj.style.cssText = `position:absolute; left:${5+Math.random()*90}%; top:-30px; pointer-events:none; font-size:24px;`;
+      obj.innerHTML = isStar
+        ? `<svg width="26" height="26" viewBox="0 0 28 28"><path d="M14 2 L17 11 L26 11 L19 17 L22 26 L14 20 L6 26 L9 17 L2 11 L11 11 Z" fill="#FFD93D" stroke="#F5A623" stroke-width="0.5"/></svg>`
+        : `<svg width="24" height="24" viewBox="0 0 28 28"><circle cx="14" cy="14" r="10" fill="#2C2C3E" stroke="#1A1A2E" stroke-width="1"/><circle cx="10" cy="12" r="2" fill="#5A5A6E"/><circle cx="18" cy="15" r="1.5" fill="#5A5A6E"/></svg>`;
+      obj.dataset.type = isStar ? 'star' : 'bad';
+      field.appendChild(obj);
+      let y = -30;
+      const spd = 2.5 + Math.random() * 2;
+      const iv = setInterval(() => {
+        if (over) { clearInterval(iv); obj.remove(); return; }
+        y += spd;
+        obj.style.top = y + 'px';
+        const br = basket.getBoundingClientRect();
+        const or2 = obj.getBoundingClientRect();
+        if (or2.bottom >= br.top && or2.bottom <= br.bottom + 10 && or2.right >= br.left && or2.left <= br.right) {
+          if (obj.dataset.type === 'star') { caught++; cLabel.textContent = caught; if (caught >= target) win(); }
+          else { badHits++; if (badHits >= maxBad) lose(); }
+          clearInterval(iv); obj.remove(); return;
+        }
+        if (y > field.clientHeight + 30) { clearInterval(iv); obj.remove(); }
+      }, 30);
+      timers.push(iv);
+    }
+    const si = setInterval(spawn, 650);
+    timers.push(si);
+
+    function win() {
+      over = true; clearT();
+      setTimeout(() => {
+        field.innerHTML = `<div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:20px;">
+          <div style="font-size:48px; margin-bottom:10px;">✨</div>
+          <p class="serif" style="font-size:20px; margin-bottom:6px;">Beautiful catch.</p>
+          <p style="font-size:13px; opacity:0.6; margin-bottom:18px; max-width:260px;">Every star you caught is a small blessing you almost missed.</p>
+          <button class="btn-main" onclick="__go(4)">Next →</button>
+        </div>`;
+      }, 300);
+    }
+    function lose() {
+      over = true; clearT();
+      setTimeout(() => {
+        field.innerHTML = `<div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:20px;">
+          <div style="font-size:36px; margin-bottom:10px; opacity:0.5;">🌙</div>
+          <p class="serif" style="font-size:18px; margin-bottom:6px;">Take a breath. Try again.</p>
+          <p style="font-size:12px; opacity:0.5; margin-bottom:16px;">Some nights the sky is harder than others.</p>
+          <button class="btn-main" onclick="__go(3)">Restart</button>
+        </div>`;
+      }, 300);
+    }
+  }
+
+  // ============ 4: CH 3 THINGS CARRIED ============
+  function renderCh3() {
+    stage.style.background = 'linear-gradient(180deg, #D8C8A8 0%, #E8DCC4 100%)';
+    stage.innerHTML = `
+      <div class="scene" style="color:#3D2817;">
+        <p class="ch-num" style="color:#7A6D5A;">CHAPTER 03</p>
+        <h2 class="serif ch-title" style="color:#3D2817;">The Things You Carried.</h2>
+        <p class="ch-body" style="color:#5A4A36;">Small objects that kept you company through a heavy year. Tap each one.</p>
+        <div style="background:#C9B89E; border-radius:12px; padding:20px; margin:8px 0;">
+          <svg viewBox="0 0 440 180" style="width:100%; height:160px;">
+            <rect x="0" y="160" width="440" height="20" fill="#8B6F4A" opacity="0.4"/>
+            <g class="clickable-item float-el" data-item="0"><rect x="40" y="70" width="80" height="55" rx="3" fill="#2C2C2C"/><rect x="48" y="78" width="64" height="38" fill="#4A6B8A"/><rect x="40" y="125" width="80" height="6" fill="#1A1A1A"/><text x="80" y="150" text-anchor="middle" font-size="10" fill="#3D2817" font-family="DM Sans,sans-serif">laptop</text></g>
+            <g class="clickable-item float-el" data-item="1" style="animation-delay:1s"><ellipse cx="220" cy="100" rx="38" ry="40" fill="#F5F5F5"/><ellipse cx="220" cy="90" rx="32" ry="5" fill="#8B5A2B"/><path d="M 258 87 Q 276 87 276 105 Q 276 120 258 118" fill="none" stroke="#F5F5F5" stroke-width="5"/><text x="220" y="152" text-anchor="middle" font-size="10" fill="#3D2817" font-family="DM Sans,sans-serif">mug</text></g>
+            <g class="clickable-item float-el" data-item="2" style="animation-delay:2s"><circle cx="360" cy="95" r="28" fill="#D4A574" stroke="#8B6F4A" stroke-width="1"/><circle cx="350" cy="88" r="3" fill="#5D3A1A"/><circle cx="368" cy="90" r="3" fill="#5D3A1A"/><circle cx="355" cy="102" r="3" fill="#5D3A1A"/><circle cx="370" cy="105" r="3" fill="#5D3A1A"/><text x="360" y="140" text-anchor="middle" font-size="10" fill="#3D2817" font-family="DM Sans,sans-serif">cookies</text></g>
+          </svg>
+          <div id="itd" style="min-height:36px; font-size:13px; font-style:italic; text-align:center; color:#5A4A36; opacity:0.85;"></div>
+        </div>
+        <div style="flex:1;"></div>
+        <button class="btn-main" style="background:#3D2817; color:#F5EFE0;" onclick="__go(5)">Next →</button>
+      </div>
+    `;
+    const stories = [
+      "The silent witness of every deadline, every panic, every small victory at 2 a.m.",
+      "Your go-to warm drink on cold mornings. Simple things, quiet comfort.",
+      "Small treats that made long study sessions a little more bearable."
+    ];
+    document.querySelectorAll('.clickable-item').forEach(el => {
+      el.addEventListener('click', function() {
+        document.getElementById('itd').innerHTML = `<span style="animation:fadeIn 0.6s ease-out; display:inline-block;">${stories[parseInt(this.dataset.item)]}</span>`;
+      });
+    });
+  }
+
+  // ============ 5: CH 4 STAGES ============
+  function renderCh4() {
+    stage.style.background = 'linear-gradient(180deg, #5D1F2D 0%, #7B2D40 100%)';
+    stage.innerHTML = `
+      <div class="scene">
+        <svg viewBox="0 0 480 150" style="width:100%; height:120px; margin-bottom:8px; opacity:0.7;">
+          <rect x="0" y="115" width="480" height="35" fill="#3D1620"/>
+          <rect x="60" y="45" width="360" height="70" fill="#1A0810"/>
+          <path d="M 60 45 L 60 115 L 120 115 L 100 45 Z" fill="#5D1F2D"/><path d="M 420 45 L 420 115 L 360 115 L 380 45 Z" fill="#5D1F2D"/>
+          <circle cx="240" cy="80" r="18" fill="#F5DEB3" opacity="0.4" class="float-el"/><circle cx="240" cy="80" r="8" fill="#F5DEB3" opacity="0.8"/>
+        </svg>
+        <p class="ch-num">CHAPTER 04</p>
+        <h2 class="serif ch-title">The Stages You Built.</h2>
+        <p class="ch-body">You love being part of the team behind the scenes — running acara, making things happen, keeping everything together. Not everyone can do that. Seriously, not everyone can.</p>
+        <p class="prompt">"What event, committee, or moment are you most proud of this year?"</p>
+        <textarea id="ans4" rows="3" placeholder="Tell the story..."></textarea>
+        <div style="flex:1;"></div>
+        <button class="btn-main" onclick="__save('ch4',document.getElementById('ans4').value); __go(6)">Next →</button>
+      </div>
+    `;
+  }
+
+  // ============ 6: GAME 2 — POP THE PETALS (EASIER) ============
+  function renderGame2() {
+    stage.style.background = 'linear-gradient(180deg, #FFEFF4 0%, #FFD6E5 100%)';
+    const target = 15; const duration = 25;
+    let popped = 0; let timeLeft = duration; let over = false;
+    stage.innerHTML = `
+      <div class="scene" style="color:#7A3450; padding:16px;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+          <span class="hud" style="color:#7A3450; background:rgba(255,255,255,0.7); border-color:rgba(0,0,0,0.1);">🌸 <span id="g2p">0</span>/${target}</span>
+          <span class="hud" style="color:#7A3450; background:rgba(255,255,255,0.7); border-color:rgba(0,0,0,0.1);">⏱ <span id="g2t">${duration}</span>s</span>
+        </div>
+        <p style="text-align:center; font-size:11px; opacity:0.6; letter-spacing:1.5px; margin-bottom:8px; color:#7A3450;">TAP THE PETALS BEFORE THEY DRIFT AWAY</p>
+        <div id="g2f" style="position:relative; flex:1; background:linear-gradient(180deg,#FFF5F8 0%,#FFDEEA 100%); border-radius:12px; overflow:hidden;"></div>
+      </div>
+    `;
+    const field = document.getElementById('g2f');
+    const pLabel = document.getElementById('g2p');
+    const tLabel = document.getElementById('g2t');
+
+    function spawn() {
+      if (over) return;
+      const p = document.createElement('div');
+      p.className = 'petal-clickable';
+      p.style.left = (5 + Math.random() * 88) + '%';
+      p.style.top = '-40px';
+      const sz = 30 + Math.random() * 18;
+      const rot = Math.random() * 360;
+      p.innerHTML = `<svg width="${sz}" height="${sz}" viewBox="0 0 40 40"><ellipse cx="20" cy="20" rx="14" ry="9" fill="#FFB5C9" stroke="#E88FA8" stroke-width="1" transform="rotate(${rot} 20 20)"/><ellipse cx="20" cy="20" rx="8" ry="5" fill="#FFCFDD" transform="rotate(${rot+30} 20 20)"/></svg>`;
+      field.appendChild(p);
+      let y = -40; let x = parseFloat(p.style.left);
+      const spd = 1 + Math.random() * 1.5; const drift = (Math.random()-0.5) * 0.2;
+      let r = 0; const rs = (Math.random()-0.5) * 3;
+      const iv = setInterval(() => {
+        if (over) { clearInterval(iv); p.remove(); return; }
+        y += spd; x += drift; r += rs;
+        p.style.top = y + 'px'; p.style.left = x + '%'; p.style.transform = `rotate(${r}deg)`;
+        if (y > field.clientHeight + 40) { clearInterval(iv); p.remove(); }
+      }, 30);
+      timers.push(iv);
+      p.addEventListener('click', () => {
+        if (over) return;
+        popped++; pLabel.textContent = popped;
+        const b = document.createElement('div');
+        b.className = 'burst'; b.style.left = p.style.left; b.style.top = p.style.top;
+        b.innerHTML = `<svg width="36" height="36" viewBox="0 0 40 40"><circle cx="20" cy="20" r="8" fill="#FF9EB5" opacity="0.7"/></svg>`;
+        field.appendChild(b); setTimeout(() => b.remove(), 400);
+        clearInterval(iv); p.remove();
+        if (popped >= target) win();
+      });
+    }
+    const si = setInterval(spawn, 550);
+    timers.push(si);
+    const ti = setInterval(() => {
+      if (over) return;
+      timeLeft--; tLabel.textContent = timeLeft;
+      if (timeLeft <= 0) { popped >= target ? win() : lose(); }
+    }, 1000);
+    timers.push(ti);
+
+    function win() {
+      over = true; clearT();
+      setTimeout(() => {
+        field.innerHTML = `<div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:20px;">
+          <div style="font-size:48px; margin-bottom:10px;">🌸</div>
+          <p class="serif" style="font-size:20px; margin-bottom:6px; color:#7A3450;">You caught the joy.</p>
+          <p style="font-size:13px; opacity:0.6; margin-bottom:18px; color:#7A3450; max-width:260px;">The little moments are the best ones — if you're quick enough to notice.</p>
+          <button class="btn-main" style="background:#7A3450; color:#F5EFE0;" onclick="__go(7)">Next →</button>
+        </div>`;
+      }, 300);
+    }
+    function lose() {
+      over = true; clearT();
+      setTimeout(() => {
+        field.innerHTML = `<div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:20px;">
+          <div style="font-size:36px; margin-bottom:10px; opacity:0.5;">🍃</div>
+          <p class="serif" style="font-size:18px; margin-bottom:6px; color:#7A3450;">Some petals drifted away.</p>
+          <p style="font-size:12px; opacity:0.5; margin-bottom:16px; color:#7A3450;">Try again — you almost had it.</p>
+          <button class="btn-main" style="background:#7A3450; color:#F5EFE0;" onclick="__go(6)">Restart</button>
+        </div>`;
+      }, 300);
+    }
+  }
+
+  // ============ 7: CH 5 EQUATIONS ============
+  function renderCh5() {
+    stage.style.background = 'linear-gradient(180deg, #0F1F1A 0%, #1A2F24 100%)';
+    stage.innerHTML = `
+      <div class="scene" style="color:#E8F0DD;">
+        <svg viewBox="0 0 480 130" style="width:100%; height:110px; margin-bottom:8px; opacity:0.8;">
+          <rect x="20" y="15" width="440" height="100" rx="4" fill="#1F2F28" stroke="#4A6B5A" stroke-width="2"/>
+          <text x="240" y="42" text-anchor="middle" font-size="14" fill="#E8F0DD" font-family="Cormorant Garamond,serif" font-style="italic" opacity="0.7">F = m · a</text>
+          <text x="240" y="65" text-anchor="middle" font-size="14" fill="#E8F0DD" font-family="Cormorant Garamond,serif" font-style="italic" opacity="0.5">E = mc²</text>
+          <text x="240" y="88" text-anchor="middle" font-size="14" fill="#E8F0DD" font-family="Cormorant Garamond,serif" font-style="italic" opacity="0.3">∫ you · dt = growth</text>
+        </svg>
+        <p class="ch-num">CHAPTER 05</p>
+        <h2 class="serif ch-title">The Equations of You.</h2>
+        <p class="ch-body">Every system has one variable that matters most — the one that, if you remove it, everything collapses. Physics kid, you know this.</p>
+        <p class="prompt">"If this past year was one equation, which variable mattered most?"</p>
+        <div id="opts5" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;"></div>
+        <input type="text" id="ans5" placeholder="...or write your own variable"/>
+        <div style="flex:1;"></div>
+        <button class="btn-main" onclick="window.__saveCh5(); __go(8)">Next →</button>
+      </div>
+    `;
+    const vars = ['Family','Friends','Dreams','Energy','Self-belief','Knowledge','Prayer','Resilience'];
+    let chosen = null;
+    const c = document.getElementById('opts5');
+    vars.forEach(v => {
+      const b = document.createElement('button'); b.className = 'btn-ghost'; b.textContent = v;
+      b.onclick = () => { document.querySelectorAll('#opts5 button').forEach(x => x.classList.remove('selected')); b.classList.add('selected'); chosen = v; };
+      c.appendChild(b);
+    });
+    window.__saveCh5 = () => { userData.ch5 = { chosen, custom: document.getElementById('ans5').value }; };
+  }
+
+  // ============ 8: CH 6 GARDEN ============
+  function renderCh6() {
+    stage.style.background = 'linear-gradient(180deg, #1A3020 0%, #2D4A3A 100%)';
+    stage.innerHTML = `
+      <div class="scene">
+        <p class="ch-num">CHAPTER 06</p>
+        <h2 class="serif ch-title">Gratitude Garden.</h2>
+        <p class="ch-body">Write the things — big or small — you're grateful for this year. Each one becomes a flower. Your garden, your growth.</p>
+        <div id="gw" style="position:relative; background:linear-gradient(180deg,#1F3528 0%,#2D4A3A 100%); border-radius:12px; overflow:hidden; margin:6px 0;">
+          <svg id="gsv" viewBox="0 0 440 180" style="width:100%; height:180px;">
+            <defs><radialGradient id="mg" cx="50%" cy="50%"><stop offset="0%" stop-color="#F5DEB3" stop-opacity="0.3"/><stop offset="100%" stop-color="#F5DEB3" stop-opacity="0"/></radialGradient></defs>
+            <circle cx="380" cy="28" r="28" fill="url(#mg)"/><circle cx="380" cy="28" r="9" fill="#F5DEB3" opacity="0.7"/>
+            <circle cx="60" cy="22" r="1" fill="#F5EFE0" class="star-el"/><circle cx="200" cy="18" r="1" fill="#F5EFE0" class="star-el" style="animation-delay:1s"/>
+            <path d="M 0 148 Q 110 133 220 146 T 440 143 L 440 180 L 0 180 Z" fill="#1A2F20"/><path d="M 0 162 Q 110 153 220 160 T 440 158 L 440 180 L 0 180 Z" fill="#0F1F14"/>
+            <g id="fc"></g>
+          </svg>
+          <p id="ge" style="position:absolute; bottom:18px; left:0; right:0; text-align:center; opacity:0.4; font-size:12px; font-style:italic; margin:0;">Your garden is empty. Plant your first flower below.</p>
+        </div>
+        <div style="display:flex; gap:8px; margin-top:6px;">
+          <input type="text" id="gi" placeholder="I'm grateful for..." style="flex:1;"/>
+          <button class="btn-ghost" onclick="window.__addG()" style="white-space:nowrap;">+ Plant</button>
+        </div>
+        <div style="flex:1;"></div>
+        <button class="btn-main" id="g6n" onclick="__go(9)" disabled>Plant at least 3 →</button>
+      </div>
+    `;
+    userData.gratitudes = [];
+    const fc = document.getElementById('fc');
+    const pos = [55, 105, 155, 205, 260, 310, 365, 85, 175, 275];
+    const hues = [
+      {p:'#FF9EB5',c:'#FFD93D'},{p:'#E8BFFF',c:'#FFD93D'},{p:'#FFD166',c:'#F07167'},
+      {p:'#F5EFE0',c:'#FFD93D'},{p:'#A5D8FF',c:'#FFD93D'},{p:'#FFC4A3',c:'#D4572A'}
+    ];
+    window.__addG = () => {
+      const inp = document.getElementById('gi');
+      const v = inp.value.trim(); if (!v) return;
+      const idx = userData.gratitudes.length; userData.gratitudes.push(v);
+      const ge = document.getElementById('ge'); if (ge) ge.style.display = 'none';
+      const x = pos[idx % pos.length] + (Math.random()*16-8);
+      const sh = 38 + Math.random()*28; const by = 153; const ty = by - sh;
+      const h = hues[idx % 6];
+      const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+      g.style.animation = `sway 4s ease-in-out infinite`; g.style.animationDelay = `${idx*0.3}s`;
+      const stem = document.createElementNS('http://www.w3.org/2000/svg','path');
+      stem.setAttribute('d',`M ${x} ${by} Q ${x-3} ${by-sh/2} ${x} ${ty}`);
+      stem.setAttribute('stroke','#4A7A3A'); stem.setAttribute('stroke-width','1.5'); stem.setAttribute('fill','none');
+      g.appendChild(stem);
+      const leaf = document.createElementNS('http://www.w3.org/2000/svg','ellipse');
+      leaf.setAttribute('cx',x-6); leaf.setAttribute('cy',by-sh/2); leaf.setAttribute('rx','5'); leaf.setAttribute('ry','2');
+      leaf.setAttribute('fill','#5A8A4A'); leaf.setAttribute('transform',`rotate(-30 ${x-6} ${by-sh/2})`);
+      g.appendChild(leaf);
+      for (let i = 0; i < 6; i++) {
+        const a = (i/6)*Math.PI*2;
+        const pe = document.createElementNS('http://www.w3.org/2000/svg','ellipse');
+        pe.setAttribute('cx',x+Math.cos(a)*4); pe.setAttribute('cy',ty+Math.sin(a)*4);
+        pe.setAttribute('rx','5'); pe.setAttribute('ry','3.5'); pe.setAttribute('fill',h.p);
+        pe.setAttribute('transform',`rotate(${a*180/Math.PI} ${x+Math.cos(a)*4} ${ty+Math.sin(a)*4})`);
+        g.appendChild(pe);
+      }
+      const ce = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      ce.setAttribute('cx',x); ce.setAttribute('cy',ty); ce.setAttribute('r','3'); ce.setAttribute('fill',h.c);
+      g.appendChild(ce);
+      const ti = document.createElementNS('http://www.w3.org/2000/svg','title'); ti.textContent = v; g.appendChild(ti);
+      g.style.opacity = '0'; setTimeout(() => { g.style.transition = 'opacity 0.6s'; g.style.opacity = '1'; }, 10);
+      fc.appendChild(g); inp.value = '';
+      if (userData.gratitudes.length >= 3) { const btn = document.getElementById('g6n'); btn.disabled = false; btn.textContent = 'Next →'; }
+    };
+    document.getElementById('gi').addEventListener('keypress', e => { if (e.key === 'Enter') window.__addG(); });
+  }
+
+  // ============ 9: GAME 3 — MATCH MEMORIES ============
+  function renderGame3() {
+    stage.style.background = 'linear-gradient(180deg, #F5EFE0 0%, #E8DCC4 100%)';
+    let first = null; let lock = false; let matched = 0; let moves = 0; const maxMoves = 20; const pairs = 6;
+    const icons = [
+      {k:'moon',svg:`<svg width="32" height="32" viewBox="0 0 40 40"><circle cx="22" cy="20" r="12" fill="#F5DEB3"/><circle cx="26" cy="16" r="12" fill="#F5EFE0"/></svg>`},
+      {k:'star',svg:`<svg width="32" height="32" viewBox="0 0 40 40"><path d="M20 6 L24 16 L35 16 L26 22 L30 32 L20 26 L10 32 L14 22 L5 16 L16 16 Z" fill="#FFD93D" stroke="#F5A623" stroke-width="0.5"/></svg>`},
+      {k:'book',svg:`<svg width="32" height="32" viewBox="0 0 40 40"><rect x="8" y="8" width="24" height="26" rx="1" fill="#7A8F6B"/><rect x="10" y="10" width="20" height="22" fill="#F5EFE0"/><line x1="14" y1="16" x2="26" y2="16" stroke="#7A8F6B" stroke-width="1"/><line x1="14" y1="20" x2="26" y2="20" stroke="#7A8F6B" stroke-width="1"/></svg>`},
+      {k:'mug',svg:`<svg width="32" height="32" viewBox="0 0 40 40"><ellipse cx="18" cy="12" rx="10" ry="2" fill="#8B5A2B"/><rect x="8" y="12" width="20" height="18" fill="#F5F5F5" stroke="#A89880" stroke-width="1"/><path d="M 28 16 Q 34 16 34 22 Q 34 28 28 28" fill="none" stroke="#F5F5F5" stroke-width="3"/></svg>`},
+      {k:'flower',svg:`<svg width="32" height="32" viewBox="0 0 40 40"><circle cx="20" cy="14" r="4" fill="#FF9EB5"/><circle cx="14" cy="20" r="4" fill="#FF9EB5"/><circle cx="26" cy="20" r="4" fill="#FF9EB5"/><circle cx="17" cy="26" r="4" fill="#FF9EB5"/><circle cx="23" cy="26" r="4" fill="#FF9EB5"/><circle cx="20" cy="20" r="3" fill="#FFD93D"/></svg>`},
+      {k:'letter',svg:`<svg width="32" height="32" viewBox="0 0 40 40"><rect x="6" y="12" width="28" height="18" fill="#FFFCF6" stroke="#A67C52" stroke-width="1"/><path d="M 6 12 L 20 22 L 34 12" fill="none" stroke="#A67C52" stroke-width="1"/></svg>`}
+    ];
+    const deck = []; icons.forEach(ic => { deck.push({...ic}); deck.push({...ic}); });
+    for (let i = deck.length-1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [deck[i],deck[j]] = [deck[j],deck[i]]; }
+
+    stage.innerHTML = `
+      <div class="scene" style="color:#3D2817; padding:20px;">
+        <p class="ch-num" style="color:#7A6D5A;">MINI GAME</p>
+        <h2 class="serif" style="font-size:22px; margin-bottom:6px; color:#3D2817;">Match the Memories.</h2>
+        <p style="font-size:12px; opacity:0.6; margin-bottom:12px; color:#5A4A36;">Flip cards and find the pairs. Some things we hold, some things we let go.</p>
+        <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+          <span class="hud" style="color:#3D2817; background:rgba(0,0,0,0.06); border-color:rgba(0,0,0,0.1);">✨ <span id="g3m">0</span>/${pairs}</span>
+          <span class="hud" style="color:#3D2817; background:rgba(0,0,0,0.06); border-color:rgba(0,0,0,0.1);">Moves: <span id="g3v">0</span>/${maxMoves}</span>
+        </div>
+        <div id="g3g" style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px;"></div>
+        <div id="g3r" style="text-align:center; margin-top:14px; min-height:50px;"></div>
+      </div>
+    `;
+    const grid = document.getElementById('g3g');
+    const mL = document.getElementById('g3m');
+    const vL = document.getElementById('g3v');
+
+    deck.forEach((card, idx) => {
+      const el = document.createElement('div');
+      el.className = 'mini-card'; el.dataset.key = card.k; el.dataset.idx = idx;
+      el.style.background = 'rgba(0,0,0,0.07)'; el.style.borderColor = 'rgba(0,0,0,0.12)';
+      el.innerHTML = `<span style="opacity:0.3; font-size:18px; color:#3D2817;">?</span>`;
+      el.addEventListener('click', () => {
+        if (lock || el.classList.contains('flipped') || el.classList.contains('matched')) return;
+        el.classList.add('flipped'); el.innerHTML = card.svg; el.style.background = 'rgba(255,255,255,0.7)';
+        if (!first) { first = el; return; }
+        moves++; vL.textContent = moves;
+        if (first.dataset.key === el.dataset.key) {
+          first.classList.add('matched'); el.classList.add('matched');
+          matched++; mL.textContent = matched; first = null;
+          if (matched >= pairs) win();
+        } else {
+          lock = true; const fc2 = first;
+          setTimeout(() => {
+            fc2.classList.remove('flipped'); el.classList.remove('flipped');
+            fc2.innerHTML = el.innerHTML = `<span style="opacity:0.3; font-size:18px; color:#3D2817;">?</span>`;
+            fc2.style.background = el.style.background = 'rgba(0,0,0,0.07)';
+            lock = false; first = null;
+            if (moves >= maxMoves && matched < pairs) lose();
+          }, 700);
+        }
+      });
+      grid.appendChild(el);
+    });
+
+    function win() {
+      setTimeout(() => {
+        document.getElementById('g3r').innerHTML = `<p class="serif" style="font-size:18px; margin-bottom:6px; color:#3D2817;">All matched. 🌸</p>
+          <p style="font-size:12px; opacity:0.6; margin-bottom:12px; color:#5A4A36;">You remember what matters. That's a superpower.</p>
+          <button class="btn-main" style="background:#3D2817; color:#F5EFE0;" onclick="__go(10)">Next →</button>`;
+      }, 400);
+    }
+    function lose() {
+      setTimeout(() => {
+        document.getElementById('g3r').innerHTML = `<p class="serif" style="font-size:16px; margin-bottom:6px; color:#3D2817;">Almost there.</p>
+          <p style="font-size:12px; opacity:0.6; margin-bottom:12px; color:#5A4A36;">Shuffle and try again.</p>
+          <button class="btn-main" style="background:#3D2817; color:#F5EFE0;" onclick="__go(9)">Restart</button>`;
+      }, 400);
+    }
+  }
+
+  // ============ 10: CH 7 LETTER ============
+  function renderCh7() {
+    stage.style.background = 'linear-gradient(180deg, #F0D8A8 0%, #F5E6C8 100%)';
+    stage.innerHTML = `
+      <div class="scene" style="color:#4A2F1A;">
+        <svg viewBox="0 0 480 80" style="width:100%; height:65px; margin-bottom:8px; opacity:0.7;">
+          <rect x="140" y="15" width="200" height="50" fill="#FFFCF6" stroke="#A67C52" stroke-width="1"/>
+          <line x1="156" y1="30" x2="324" y2="30" stroke="#D4A574" stroke-width="0.5"/>
+          <line x1="156" y1="40" x2="324" y2="40" stroke="#D4A574" stroke-width="0.5"/>
+          <line x1="156" y1="50" x2="300" y2="50" stroke="#D4A574" stroke-width="0.5"/>
+          <circle cx="370" cy="40" r="12" fill="#C9573D" opacity="0.85"/>
+          <text x="370" y="44" text-anchor="middle" font-size="9" fill="#FFFCF6" font-family="Cormorant Garamond,serif">A.K.K</text>
+        </svg>
+        <p class="ch-num" style="color:#8B6F4A;">CHAPTER 07</p>
+        <h2 class="serif ch-title" style="color:#4A2F1A;">Letter to Future You.</h2>
+        <p class="ch-body" style="color:#5A4028;">The last chapter. Write a short letter to the Aisyah one year from now — what you promise her, what you hope for, what you want her to remember. She'll need it.</p>
+        <textarea id="ans7" rows="5" placeholder="Dear future me,..." style="background:rgba(255,255,255,0.5); border-color:rgba(0,0,0,0.15); color:#4A2F1A;"></textarea>
+        <p style="font-size:11px; opacity:0.5; margin-top:6px; text-align:center; color:#8B6F4A;">Screenshot your letter before moving on. This one's yours to keep.</p>
+        <div style="flex:1;"></div>
+        <button class="btn-main" style="background:#4A2F1A; color:#F5EFE0;" onclick="__save('ch7',document.getElementById('ans7').value); __go(11)">Seal the envelope →</button>
+      </div>
+    `;
+  }
+
+  // ============ 11: FINALE ============
+  function renderFinale() {
+    setP(10);
+    stage.style.background = '#0A0A12';
+    stage.innerHTML = `
+      <div class="scene" style="align-items:center; justify-content:center; text-align:center;">
+        <svg viewBox="0 0 100 130" style="width:70px; height:95px; margin-bottom:28px;">
+          <rect x="44" y="55" width="12" height="55" fill="#E8DFD0"/>
+          <ellipse cx="50" cy="110" rx="13" ry="3" fill="#5A4A3A"/>
+          <path d="M 50 25 Q 44 40 50 55 Q 56 40 50 25" fill="#FFB85C" class="float-el"><animate attributeName="opacity" values="0.8;1;0.8" dur="2s" repeatCount="indefinite"/></path>
+          <ellipse cx="50" cy="44" rx="9" ry="13" fill="#FFD480" opacity="0.35"/>
+        </svg>
+        <p class="serif slide-up" style="font-size: 22px; max-width: 380px; line-height: 1.5; margin-bottom: 24px;">Happy birthday,<br>Aisyah Kamalia Kusuma.</p>
+        <p class="ch-body slide-up" style="max-width: 340px; opacity: 0.6; font-size: 13px; line-height: 1.8;">The world is a little better<br>because you're in it.<br><br>Stay kind. Stay curious.<br>Stay you.</p>
+        <p class="slide-up" style="margin-top: 36px; font-size: 11px; opacity: 0.3; letter-spacing: 2px;">— SOMEONE WHO'S GLAD TO KNOW YOU —</p>
+        <button class="btn-ghost slide-up" onclick="__go(0)" style="margin-top: 28px; opacity: 0.35;">Start over</button>
+      </div>
+    `;
+  }
+
+  const chapters = [
+    renderIntro,  // 0
+    renderCh1,    // 1
+    renderCh2,    // 2
+    renderGame1,  // 3
+    renderCh3,    // 4
+    renderCh4,    // 5
+    renderGame2,  // 6
+    renderCh5,    // 7
+    renderCh6,    // 8
+    renderGame3,  // 9
+    renderCh7,    // 10
+    renderFinale  // 11
+  ];
+
+  go(0);
+})();
+</script>
+</body>
+</html>
